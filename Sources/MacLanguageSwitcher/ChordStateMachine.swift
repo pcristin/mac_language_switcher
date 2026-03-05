@@ -22,6 +22,14 @@ struct ChordStateMachine {
     private var candidateActive = false
     private var disqualified = false
 
+    var debugState: String {
+        "LShift=\(leftShiftDown) LCmd=\(leftCommandDown) " +
+            "RShift=\(rightShiftDown) RCmd=\(rightCommandDown) " +
+            "LCtrl=\(leftControlDown) RCtrl=\(rightControlDown) " +
+            "LOpt=\(leftOptionDown) ROpt=\(rightOptionDown) " +
+            "candidate=\(candidateActive) disqualified=\(disqualified)"
+    }
+
     mutating func handleFlagsChanged(
         keyCode: CGKeyCode,
         isDown _: Bool,
@@ -97,7 +105,9 @@ struct ChordStateMachine {
             disqualified = false
         }
 
-        if candidateActive && !bothLeftModifiersDown {
+        let bothLeftModifiersReleased = !leftShiftDown && !leftCommandDown
+
+        if candidateActive && bothLeftModifiersReleased {
             let shouldTrigger = !disqualified
             candidateActive = false
             disqualified = false

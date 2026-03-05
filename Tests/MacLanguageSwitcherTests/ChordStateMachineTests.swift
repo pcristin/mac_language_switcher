@@ -16,10 +16,15 @@ final class ChordStateMachineTests: XCTestCase {
             modifierFlags: [.maskShift, .maskCommand]
         ))
 
-        XCTAssertTrue(state.handleFlagsChanged(
+        XCTAssertFalse(state.handleFlagsChanged(
             keyCode: ChordStateMachine.leftShiftKeyCode,
             isDown: false,
             modifierFlags: .maskCommand
+        ))
+        XCTAssertTrue(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftCommandKeyCode,
+            isDown: false,
+            modifierFlags: []
         ))
     }
 
@@ -42,6 +47,11 @@ final class ChordStateMachineTests: XCTestCase {
             keyCode: ChordStateMachine.leftCommandKeyCode,
             isDown: false,
             modifierFlags: .maskShift
+        ))
+        XCTAssertFalse(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftShiftKeyCode,
+            isDown: false,
+            modifierFlags: []
         ))
     }
 
@@ -107,10 +117,15 @@ final class ChordStateMachineTests: XCTestCase {
             modifierFlags: [.maskShift, .maskCommand]
         ))
 
-        XCTAssertTrue(state.handleFlagsChanged(
+        XCTAssertFalse(state.handleFlagsChanged(
             keyCode: ChordStateMachine.leftCommandKeyCode,
             isDown: false,
             modifierFlags: .maskShift
+        ))
+        XCTAssertTrue(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftShiftKeyCode,
+            isDown: false,
+            modifierFlags: []
         ))
     }
 
@@ -130,10 +145,15 @@ final class ChordStateMachineTests: XCTestCase {
             modifierFlags: .maskCommand
         ))
 
-        XCTAssertTrue(state.handleFlagsChanged(
+        XCTAssertFalse(state.handleFlagsChanged(
             keyCode: ChordStateMachine.leftCommandKeyCode,
             isDown: false,
             modifierFlags: .maskShift
+        ))
+        XCTAssertTrue(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftShiftKeyCode,
+            isDown: false,
+            modifierFlags: []
         ))
     }
 }

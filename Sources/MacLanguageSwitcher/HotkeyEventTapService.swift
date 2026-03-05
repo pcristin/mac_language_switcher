@@ -2,6 +2,9 @@ import ApplicationServices
 import Foundation
 
 final class HotkeyEventTapService {
+    private static let modifierReleasePollIntervalSeconds: TimeInterval = 0.005
+    private static let modifierReleaseMaxAttempts = 8
+
     enum ServiceError: LocalizedError {
         case cannotCreateEventTap
         case cannotCreateRunLoopSource
@@ -17,12 +20,17 @@ final class HotkeyEventTapService {
     }
 
     private var stateMachine = ChordStateMachine()
-    private let emitter: ShortcutEmitter
+    private let switcher: InputSourceSwitcher
+    private let debugLogger: DebugLogger
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    init(emitter: ShortcutEmitter = ShortcutEmitter()) {
-        self.emitter = emitter
+    init(
+        switcher: InputSourceSwitcher = InputSourceSwitcher(),
+        debugLogger: DebugLogger = .disabled
+    ) {
+        self.switcher = switcher
+        self.debugLogger = debugLogger
     }
 
     func start() throws {
@@ -52,6 +60,7 @@ final class HotkeyEventTapService {
 
         CFRunLoopAddSource(CFRunLoopGetCurrent(), source, .commonModes)
         CGEvent.tapEnable(tap: tap, enable: true)
+        debugLogger.log("event tap started")
     }
 
     func stop() {
@@ -75,10 +84,7 @@ final class HotkeyEventTapService {
             if let tap = eventTap {
                 CGEvent.tapEnable(tap: tap, enable: true)
             }
-            return Unmanaged.passUnretained(event)
-        }
-
-        if event.getIntegerValueField(.eventSourceUserData) == ShortcutEmitter.syntheticEventTag {
+            debugLogger.log("event tap re-enabled after \(type.rawValue)")
             return Unmanaged.passUnretained(event)
         }
 
@@ -86,17 +92,26 @@ final class HotkeyEventTapService {
         case .flagsChanged:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             let isDown = CGEventSource.keyState(.combinedSessionState, key: keyCode)
+            let before = stateMachine.debugState
 
-            if stateMachine.handleFlagsChanged(
+            let shouldEmit = stateMachine.handleFlagsChanged(
                 keyCode: keyCode,
                 isDown: isDown,
                 modifierFlags: event.flags
-            ) {
-                emitter.emitControlSpace()
+            )
+
+            debugLogger.log(
+                "flagsChanged key=\(keyCode) isDown=\(isDown) flags=\(Self.formatFlags(event.flags)) " +
+                    "before={\(before)} after={\(stateMachine.debugState)} trigger=\(shouldEmit)"
+            )
+
+            if shouldEmit {
+                enqueueInputSourceSwitch()
             }
         case .keyDown:
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             _ = stateMachine.handleKeyDown(keyCode: keyCode)
+            debugLogger.log("keyDown key=\(keyCode) state={\(stateMachine.debugState)}")
         default:
             break
         }
@@ -111,5 +126,51 @@ final class HotkeyEventTapService {
 
         let service = Unmanaged<HotkeyEventTapService>.fromOpaque(userInfo).takeUnretainedValue()
         return service.handleEvent(type: type, event: event)
+    }
+
+    private func enqueueInputSourceSwitch() {
+        debugLogger.log("queue switch input source")
+        Self.switchWhenLeftModifiersReleased(
+            switcher: switcher,
+            debugLogger: debugLogger,
+            attempt: 0
+        )
+    }
+
+    private static func switchWhenLeftModifiersReleased(
+        switcher: InputSourceSwitcher,
+        debugLogger: DebugLogger,
+        attempt: Int
+    ) {
+        let leftShiftDown = CGEventSource.keyState(.combinedSessionState, key: ChordStateMachine.leftShiftKeyCode)
+        let leftCommandDown = CGEventSource.keyState(.combinedSessionState, key: ChordStateMachine.leftCommandKeyCode)
+
+        if (leftShiftDown || leftCommandDown), attempt < modifierReleaseMaxAttempts {
+            let intervalMs = Int(modifierReleasePollIntervalSeconds * 1000)
+            debugLogger.log(
+                "defer switch attempt=\(attempt) leftShiftDown=\(leftShiftDown) leftCommandDown=\(leftCommandDown) " +
+                    "waitMs=\(intervalMs)"
+            )
+
+            DispatchQueue.main.asyncAfter(deadline: .now() + modifierReleasePollIntervalSeconds) {
+                Self.switchWhenLeftModifiersReleased(
+                    switcher: switcher,
+                    debugLogger: debugLogger,
+                    attempt: attempt + 1
+                )
+            }
+            return
+        }
+
+        let switched = switcher.cycleToNextSource()
+        debugLogger.log(
+            "switch input source attempt=\(attempt) leftShiftDown=\(leftShiftDown) " +
+                "leftCommandDown=\(leftCommandDown) switched=\(switched)"
+        )
+    }
+
+    private static func formatFlags(_ flags: CGEventFlags) -> String {
+        let raw = flags.rawValue
+        return "0x\(String(raw, radix: 16))"
     }
 }

@@ -6,7 +6,7 @@ Personal macOS utility that cycles input sources with `Left Shift + Left Command
 
 - Detects `LShift + LCommand` chord.
 - Triggers only when both are pressed and released without any other key.
-- Emits synthetic `Ctrl + Space`, so macOS performs the same input-source cycle logic/order as your current shortcut.
+- Switches to the next enabled keyboard input source using macOS Text Input Source APIs.
 - Passes through all original keyboard events, so other shortcuts stay unchanged.
 
 ## Limitations
@@ -27,10 +27,22 @@ swift build -c release
 swift run MacLanguageSwitcher
 ```
 
+Debug run:
+
+```bash
+swift run MacLanguageSwitcher --debug
+```
+
 ## Install as login service
 
 ```bash
 ./scripts/install-launch-agent.sh
+```
+
+Install with debug logs enabled:
+
+```bash
+./scripts/install-launch-agent.sh --debug
 ```
 
 LaunchAgent file:
@@ -42,6 +54,35 @@ LaunchAgent file:
 launchctl kickstart -k "gui/$(id -u)/com.mac-language-switcher"
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.mac-language-switcher.plist"
 ```
+
+## Makefile shortcuts
+
+```bash
+make test
+make install       # clean/no-debug install
+make install-clean # alias for no-debug install
+make install-debug
+make restart
+make reinstall
+make uninstall
+make status
+make logs
+```
+
+## Debug logs
+
+- Runtime debug mode is enabled via `--debug` or `MLS_DEBUG=1`.
+- LaunchAgent debug mode is enabled by `./scripts/install-launch-agent.sh --debug`.
+- Logs are written to:
+  - `/tmp/mac-language-switcher.err.log`
+  - `/tmp/mac-language-switcher.log`
+
+## Permission automation
+
+macOS does not allow programmatic granting of Accessibility/Input Monitoring (TCC) permissions.
+You must grant them manually in:
+- `System Settings -> Privacy & Security -> Accessibility`
+- `System Settings -> Privacy & Security -> Input Monitoring`
 
 ## Verification checklist
 
