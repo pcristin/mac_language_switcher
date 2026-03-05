@@ -13,41 +13,77 @@ struct ChordStateMachine {
 
     private var leftShiftDown = false
     private var leftCommandDown = false
+    private var rightShiftDown = false
+    private var rightCommandDown = false
+    private var leftControlDown = false
+    private var rightControlDown = false
+    private var leftOptionDown = false
+    private var rightOptionDown = false
     private var candidateActive = false
     private var disqualified = false
 
     mutating func handleFlagsChanged(
         keyCode: CGKeyCode,
-        isDown: Bool,
+        isDown _: Bool,
         modifierFlags: CGEventFlags
     ) -> Bool {
-        let effectiveIsDown = Self.effectiveModifierState(
-            keyCode: keyCode,
-            isDown: isDown,
-            modifierFlags: modifierFlags
-        )
-
-        // Keep per-key state aligned with event flags to avoid stale-modifier false positives.
-        if !modifierFlags.contains(.maskShift) {
-            leftShiftDown = false
-        }
-
-        if !modifierFlags.contains(.maskCommand) {
-            leftCommandDown = false
-        }
-
         switch keyCode {
         case Self.leftShiftKeyCode:
-            leftShiftDown = effectiveIsDown
+            leftShiftDown = Self.changedKeyIsPressed(
+                priorState: leftShiftDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskShift)
+            )
         case Self.leftCommandKeyCode:
-            leftCommandDown = effectiveIsDown
-        case Self.rightShiftKeyCode,
-             Self.rightCommandKeyCode,
-             Self.leftControlKeyCode,
-             Self.rightControlKeyCode,
-             Self.leftOptionKeyCode,
-             Self.rightOptionKeyCode:
-            if candidateActive && effectiveIsDown {
+            leftCommandDown = Self.changedKeyIsPressed(
+                priorState: leftCommandDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskCommand)
+            )
+        case Self.rightShiftKeyCode:
+            rightShiftDown = Self.changedKeyIsPressed(
+                priorState: rightShiftDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskShift)
+            )
+            if candidateActive && rightShiftDown {
+                disqualified = true
+            }
+        case Self.rightCommandKeyCode:
+            rightCommandDown = Self.changedKeyIsPressed(
+                priorState: rightCommandDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskCommand)
+            )
+            if candidateActive && rightCommandDown {
+                disqualified = true
+            }
+        case Self.leftControlKeyCode:
+            leftControlDown = Self.changedKeyIsPressed(
+                priorState: leftControlDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskControl)
+            )
+            if candidateActive && leftControlDown {
+                disqualified = true
+            }
+        case Self.rightControlKeyCode:
+            rightControlDown = Self.changedKeyIsPressed(
+                priorState: rightControlDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskControl)
+            )
+            if candidateActive && rightControlDown {
+                disqualified = true
+            }
+        case Self.leftOptionKeyCode:
+            leftOptionDown = Self.changedKeyIsPressed(
+                priorState: leftOptionDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskAlternate)
+            )
+            if candidateActive && leftOptionDown {
+                disqualified = true
+            }
+        case Self.rightOptionKeyCode:
+            rightOptionDown = Self.changedKeyIsPressed(
+                priorState: rightOptionDown,
+                aggregateFlagIsSet: modifierFlags.contains(.maskAlternate)
+            )
+            if candidateActive && rightOptionDown {
                 disqualified = true
             }
         default:
@@ -90,30 +126,15 @@ struct ChordStateMachine {
         rightOptionKeyCode
     ]
 
-    private static func effectiveModifierState(
-        keyCode: CGKeyCode,
-        isDown: Bool,
-        modifierFlags: CGEventFlags
+    private static func changedKeyIsPressed(
+        priorState: Bool,
+        aggregateFlagIsSet: Bool
     ) -> Bool {
-        guard let requiredFlag = modifierFlag(for: keyCode) else {
-            return isDown
+        if priorState {
+            // The key that generated this flagsChanged event was previously down, so it just released.
+            return false
         }
 
-        return modifierFlags.contains(requiredFlag)
-    }
-
-    private static func modifierFlag(for keyCode: CGKeyCode) -> CGEventFlags? {
-        switch keyCode {
-        case leftShiftKeyCode, rightShiftKeyCode:
-            return .maskShift
-        case leftCommandKeyCode, rightCommandKeyCode:
-            return .maskCommand
-        case leftControlKeyCode, rightControlKeyCode:
-            return .maskControl
-        case leftOptionKeyCode, rightOptionKeyCode:
-            return .maskAlternate
-        default:
-            return nil
-        }
+        return aggregateFlagIsSet
     }
 }

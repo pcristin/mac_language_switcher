@@ -113,4 +113,27 @@ final class ChordStateMachineTests: XCTestCase {
             modifierFlags: .maskShift
         ))
     }
+
+    func test_chordTriggersEvenWhenSecondModifierEventLacksFirstModifierFlag() {
+        var state = ChordStateMachine()
+
+        XCTAssertFalse(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftShiftKeyCode,
+            isDown: true,
+            modifierFlags: .maskShift
+        ))
+
+        // Real event streams can briefly provide only the changed modifier flag.
+        XCTAssertFalse(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftCommandKeyCode,
+            isDown: true,
+            modifierFlags: .maskCommand
+        ))
+
+        XCTAssertTrue(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftCommandKeyCode,
+            isDown: false,
+            modifierFlags: .maskShift
+        ))
+    }
 }
