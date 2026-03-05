@@ -92,4 +92,25 @@ final class ChordStateMachineTests: XCTestCase {
             modifierFlags: []
         ))
     }
+
+    func test_chordStillTriggersWhenIsDownSignalIsStaleButModifierFlagsAreCorrect() {
+        var state = ChordStateMachine()
+
+        XCTAssertFalse(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftShiftKeyCode,
+            isDown: false,
+            modifierFlags: .maskShift
+        ))
+        XCTAssertFalse(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftCommandKeyCode,
+            isDown: false,
+            modifierFlags: [.maskShift, .maskCommand]
+        ))
+
+        XCTAssertTrue(state.handleFlagsChanged(
+            keyCode: ChordStateMachine.leftCommandKeyCode,
+            isDown: false,
+            modifierFlags: .maskShift
+        ))
+    }
 }

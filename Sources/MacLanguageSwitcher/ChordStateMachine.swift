@@ -21,6 +21,12 @@ struct ChordStateMachine {
         isDown: Bool,
         modifierFlags: CGEventFlags
     ) -> Bool {
+        let effectiveIsDown = Self.effectiveModifierState(
+            keyCode: keyCode,
+            isDown: isDown,
+            modifierFlags: modifierFlags
+        )
+
         // Keep per-key state aligned with event flags to avoid stale-modifier false positives.
         if !modifierFlags.contains(.maskShift) {
             leftShiftDown = false
@@ -32,16 +38,16 @@ struct ChordStateMachine {
 
         switch keyCode {
         case Self.leftShiftKeyCode:
-            leftShiftDown = isDown && modifierFlags.contains(.maskShift)
+            leftShiftDown = effectiveIsDown
         case Self.leftCommandKeyCode:
-            leftCommandDown = isDown && modifierFlags.contains(.maskCommand)
+            leftCommandDown = effectiveIsDown
         case Self.rightShiftKeyCode,
              Self.rightCommandKeyCode,
              Self.leftControlKeyCode,
              Self.rightControlKeyCode,
              Self.leftOptionKeyCode,
              Self.rightOptionKeyCode:
-            if candidateActive && isDown {
+            if candidateActive && effectiveIsDown {
                 disqualified = true
             }
         default:
@@ -83,4 +89,31 @@ struct ChordStateMachine {
         leftOptionKeyCode,
         rightOptionKeyCode
     ]
+
+    private static func effectiveModifierState(
+        keyCode: CGKeyCode,
+        isDown: Bool,
+        modifierFlags: CGEventFlags
+    ) -> Bool {
+        guard let requiredFlag = modifierFlag(for: keyCode) else {
+            return isDown
+        }
+
+        return modifierFlags.contains(requiredFlag)
+    }
+
+    private static func modifierFlag(for keyCode: CGKeyCode) -> CGEventFlags? {
+        switch keyCode {
+        case leftShiftKeyCode, rightShiftKeyCode:
+            return .maskShift
+        case leftCommandKeyCode, rightCommandKeyCode:
+            return .maskCommand
+        case leftControlKeyCode, rightControlKeyCode:
+            return .maskControl
+        case leftOptionKeyCode, rightOptionKeyCode:
+            return .maskAlternate
+        default:
+            return nil
+        }
+    }
 }
