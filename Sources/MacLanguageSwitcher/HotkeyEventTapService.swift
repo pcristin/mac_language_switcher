@@ -87,7 +87,11 @@ final class HotkeyEventTapService {
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             let isDown = CGEventSource.keyState(.combinedSessionState, key: keyCode)
 
-            if stateMachine.handleFlagsChanged(keyCode: keyCode, isDown: isDown) {
+            if stateMachine.handleFlagsChanged(
+                keyCode: keyCode,
+                isDown: isDown,
+                modifierFlags: event.flags
+            ) {
                 emitter.emitControlSpace()
             }
         case .keyDown:

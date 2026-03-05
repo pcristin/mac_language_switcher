@@ -16,12 +16,25 @@ struct ChordStateMachine {
     private var candidateActive = false
     private var disqualified = false
 
-    mutating func handleFlagsChanged(keyCode: CGKeyCode, isDown: Bool) -> Bool {
+    mutating func handleFlagsChanged(
+        keyCode: CGKeyCode,
+        isDown: Bool,
+        modifierFlags: CGEventFlags
+    ) -> Bool {
+        // Keep per-key state aligned with event flags to avoid stale-modifier false positives.
+        if !modifierFlags.contains(.maskShift) {
+            leftShiftDown = false
+        }
+
+        if !modifierFlags.contains(.maskCommand) {
+            leftCommandDown = false
+        }
+
         switch keyCode {
         case Self.leftShiftKeyCode:
-            leftShiftDown = isDown
+            leftShiftDown = isDown && modifierFlags.contains(.maskShift)
         case Self.leftCommandKeyCode:
-            leftCommandDown = isDown
+            leftCommandDown = isDown && modifierFlags.contains(.maskCommand)
         case Self.rightShiftKeyCode,
              Self.rightCommandKeyCode,
              Self.leftControlKeyCode,
