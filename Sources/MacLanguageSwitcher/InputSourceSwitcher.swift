@@ -7,18 +7,42 @@ protocol InputSourceProvider {
     func selectSource(id: String) -> Bool
 }
 
-final class InputSourceSwitcher: @unchecked Sendable {
-    private let provider: InputSourceProvider
+struct InputSourceSwitchResult: Equatable, Sendable {
+    let triggered: Bool
+    let fromID: String?
+    let targetID: String?
+    let converged: Bool
+    let selectAttempts: Int
+}
 
-    init(provider: InputSourceProvider = TISInputSourceProvider()) {
+final class InputSourceSwitcher: @unchecked Sendable {
+    private static let maxSelectAttempts = 2
+    private static let verificationAttempts = 3
+    private static let verificationWaitSeconds: TimeInterval = 0.015
+    private static let fallbackSleepMicroseconds: useconds_t = 8_000
+
+    private let provider: InputSourceProvider
+    private let selectionNotifier: InputSourceSelectionChangeNotifying
+
+    init(
+        provider: InputSourceProvider = TISInputSourceProvider(),
+        selectionNotifier: InputSourceSelectionChangeNotifying = TISInputSourceSelectionChangeNotifier()
+    ) {
         self.provider = provider
+        self.selectionNotifier = selectionNotifier
     }
 
     @discardableResult
-    func cycleToNextSource() -> Bool {
+    func cycleToNextSource() -> InputSourceSwitchResult {
         let sourceIDs = provider.enabledSourceIDs()
         guard sourceIDs.count > 1 else {
-            return false
+            return InputSourceSwitchResult(
+                triggered: false,
+                fromID: provider.currentSourceID(),
+                targetID: nil,
+                converged: false,
+                selectAttempts: 0
+            )
         }
 
         let currentID = provider.currentSourceID()
@@ -31,10 +55,62 @@ final class InputSourceSwitcher: @unchecked Sendable {
         }
 
         if nextID == currentID {
-            return false
+            return InputSourceSwitchResult(
+                triggered: false,
+                fromID: currentID,
+                targetID: nextID,
+                converged: true,
+                selectAttempts: 0
+            )
         }
 
-        return provider.selectSource(id: nextID)
+        var selectAttempts = 0
+        for attempt in 1...Self.maxSelectAttempts {
+            selectAttempts = attempt
+            guard provider.selectSource(id: nextID) else {
+                continue
+            }
+
+            if verifyConvergence(targetID: nextID) {
+                return InputSourceSwitchResult(
+                    triggered: true,
+                    fromID: currentID,
+                    targetID: nextID,
+                    converged: true,
+                    selectAttempts: attempt
+                )
+            }
+        }
+
+        return InputSourceSwitchResult(
+            triggered: true,
+            fromID: currentID,
+            targetID: nextID,
+            converged: provider.currentSourceID() == nextID,
+            selectAttempts: selectAttempts
+        )
+    }
+
+    private func verifyConvergence(targetID: String) -> Bool {
+        if provider.currentSourceID() == targetID {
+            return true
+        }
+
+        for _ in 0..<Self.verificationAttempts {
+            if selectionNotifier.waitForSelectionChange(timeoutSeconds: Self.verificationWaitSeconds) {
+                if provider.currentSourceID() == targetID {
+                    return true
+                }
+                continue
+            }
+
+            usleep(Self.fallbackSleepMicroseconds)
+            if provider.currentSourceID() == targetID {
+                return true
+            }
+        }
+
+        return provider.currentSourceID() == targetID
     }
 }
 

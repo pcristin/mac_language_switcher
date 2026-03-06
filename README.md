@@ -80,9 +80,16 @@ make logs
 ## Permission automation
 
 macOS does not allow programmatic granting of Accessibility/Input Monitoring (TCC) permissions.
+The app explicitly requests both permissions on startup when they are missing, but macOS may not show the UI reliably for background LaunchAgent processes.
 You must grant them manually in:
 - `System Settings -> Privacy & Security -> Accessibility`
 - `System Settings -> Privacy & Security -> Input Monitoring`
+
+If no permission prompt appears after `make install-debug`, run once in foreground to force request flow:
+
+```bash
+swift run MacLanguageSwitcher --debug
+```
 
 ## Verification checklist
 

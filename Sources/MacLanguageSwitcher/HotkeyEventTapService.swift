@@ -22,18 +22,29 @@ final class HotkeyEventTapService {
     private var stateMachine = ChordStateMachine()
     private let switcher: InputSourceSwitcher
     private let debugLogger: DebugLogger
+    private let permissionPrompter: EventTapPermissionPrompter
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
     init(
         switcher: InputSourceSwitcher = InputSourceSwitcher(),
-        debugLogger: DebugLogger = .disabled
+        debugLogger: DebugLogger = .disabled,
+        permissionPrompter: EventTapPermissionPrompter = EventTapPermissionPrompter()
     ) {
         self.switcher = switcher
         self.debugLogger = debugLogger
+        self.permissionPrompter = permissionPrompter
     }
 
     func start() throws {
+        let permissionRequestResult = permissionPrompter.requestMissingPermissions()
+        if permissionRequestResult.requestedListenAccess || permissionRequestResult.requestedAccessibility {
+            debugLogger.log(
+                "requested permissions listen=\(permissionRequestResult.requestedListenAccess) " +
+                    "accessibility=\(permissionRequestResult.requestedAccessibility)"
+            )
+        }
+
         let eventMask =
             (CGEventMask(1) << CGEventType.flagsChanged.rawValue) |
             (CGEventMask(1) << CGEventType.keyDown.rawValue)
@@ -162,10 +173,12 @@ final class HotkeyEventTapService {
             return
         }
 
-        let switched = switcher.cycleToNextSource()
+        let result = switcher.cycleToNextSource()
         debugLogger.log(
             "switch input source attempt=\(attempt) leftShiftDown=\(leftShiftDown) " +
-                "leftCommandDown=\(leftCommandDown) switched=\(switched)"
+                "leftCommandDown=\(leftCommandDown) triggered=\(result.triggered) " +
+                "fromID=\(result.fromID ?? "nil") targetID=\(result.targetID ?? "nil") " +
+                "converged=\(result.converged) selectAttempts=\(result.selectAttempts)"
         )
     }
 

@@ -25,16 +25,19 @@ restart:
 	launchctl kickstart -k "$(USER_DOMAIN)/$(SERVICE_LABEL)"
 
 stop:
-	launchctl bootout "$(USER_DOMAIN)" "$(PLIST_PATH)" || true
+	@launchctl bootout "$(USER_DOMAIN)" "$(PLIST_PATH)" >/dev/null 2>&1 || \
+		launchctl remove "$(SERVICE_LABEL)" >/dev/null 2>&1 || true
 
 reinstall:
-	launchctl bootout "$(USER_DOMAIN)" "$(PLIST_PATH)" || true
+	@launchctl bootout "$(USER_DOMAIN)" "$(PLIST_PATH)" >/dev/null 2>&1 || \
+		launchctl remove "$(SERVICE_LABEL)" >/dev/null 2>&1 || true
 	rm -f "$(PLIST_PATH)"
 	rm -f "$(HOME)/Library/Application Support/MacLanguageSwitcher/MacLanguageSwitcher"
 	./scripts/install-launch-agent.sh
 
 uninstall:
-	launchctl bootout "$(USER_DOMAIN)" "$(PLIST_PATH)" || true
+	@launchctl bootout "$(USER_DOMAIN)" "$(PLIST_PATH)" >/dev/null 2>&1 || \
+		launchctl remove "$(SERVICE_LABEL)" >/dev/null 2>&1 || true
 	rm -f "$(PLIST_PATH)"
 	rm -rf "$(HOME)/Library/Application Support/MacLanguageSwitcher"
 	rm -f /tmp/mac-language-switcher.log /tmp/mac-language-switcher.err.log
