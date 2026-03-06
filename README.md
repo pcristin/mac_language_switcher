@@ -59,8 +59,7 @@ launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/com.mac-language-sw
 
 ```bash
 make test
-make install       # clean/no-debug install
-make install-clean # alias for no-debug install
+make install
 make install-debug
 make restart
 make reinstall
